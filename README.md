@@ -1,2 +1,0 @@
-# DongMofsh.github.io
-self

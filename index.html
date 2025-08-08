@@ -1,0 +1,80 @@
+<!--
+ * @Author: Domo.Feng 13022124279@163.com
+ * @Date: 2025-08-08 14:55:23
+ * @LastEditors: Domo.Feng 13022124279@163.com
+ * @LastEditTime: 2025-08-08 14:56:45
+ * @FilePath: /DongMofsh.github.io/index.html
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>动态生成页面</title>
+    <style>
+        :root {
+            --primary-color: #" + Math.random().toString(16).substr(2,6) + ";
+            --bg-gradient: linear-gradient(135deg, #" + Math.random().toString(16).substr(2,6) + " 0%, #" + Math.random().toString(16).substr(2,6) + " 100%);
+        }
+        body {
+            min-height: 100vh;
+            margin: 0;
+            background: var(--bg-gradient);
+            font-family: 'Segoe UI', system-ui;
+            display: grid;
+            place-items: center;
+            color: #" + Math.random().toString(16).substr(2,6) + ";
+        }
+        .content-box {
+            background: rgba(255,255,255,0.9);
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            max-width: 600px;
+            transition: transform 0.3s ease;
+        }
+        .content-box:hover {
+            transform: translateY(-5px);
+        }
+    </style>
+</head>
+<body>
+    <div class="content-box">
+        <h1 id="dynamicTitle"></h1>
+        <ul id="randomList"></ul>
+        <p id="timestamp"></p>
+    </div>
+
+    <script>
+        const adjectives = ['神奇的', '动态的', '交互式', '创意的', '响应式'];
+        const nouns = ['网页', '界面', '作品', '设计', '体验'];
+        
+        function getRandomElement(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        document.getElementById('dynamicTitle').textContent = 
+            `${getRandomElement(adjectives)}${getRandomElement(nouns)}-${Math.floor(Math.random()*1000)}`;
+
+        // 生成随机列表项
+        const listItems = Array.from({length: 5}, () => 
+            `<li style="color:#${Math.random().toString(16).substr(2,6)}">\u2022 ${Math.random().toString(36).substr(2,8)}</li>`);
+        document.getElementById('randomList').innerHTML = listItems.join('');
+
+        // 显示实时时间
+        setInterval(() => {
+            document.getElementById('timestamp').textContent = 
+                new Date().toLocaleString('zh-CN', { 
+                    hour12: false,
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+        }, 1000);
+    </script>
+</body>
+</html>
