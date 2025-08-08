@@ -1,0 +1,307 @@
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.163.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.163.0/examples/jsm/"
+    }
+  }
+</script>
+<style>
+body{
+  overflow: hidden;
+  margin: 0;
+}
+
+/* 字母雨样式 */
+#matrixCanvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: -1;
+}
+</style>
+
+<script type="module">
+// 添加字母雨效果
+const initMatrixRain = () => {
+  const canvas = document.createElement('canvas');
+  canvas.id = 'matrixCanvas';
+  document.body.appendChild(canvas);
+  
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$#@%&*";
+  const charArray = chars.split("");
+  
+  const fontSize = 14;
+  const columns = canvas.width / fontSize;
+  
+  // 每列的下降位置
+  const drops = [];
+  for(let i = 0; i < columns; i++) {
+    drops[i] = Math.random() * -100;
+  }
+  
+  // 绘制函数
+  const draw = () => {
+    // 半透明黑色覆盖层营造拖尾效果
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.fillStyle = '#0F0'; // 绿色文字
+    ctx.font = `${fontSize}px monospace`;
+    
+    for(let i = 0; i < drops.length; i++) {
+      const text = charArray[Math.floor(Math.random() * charArray.length)];
+      ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+      
+      // 重置下降位置
+      if(drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+        drops[i] = 0;
+      }
+      
+      drops[i]++;
+    }
+  };
+  
+  // 动画循环
+  setInterval(draw, 33); // 约30fps
+  
+  // 窗口大小调整
+  window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  });
+};
+
+// 初始化字母雨
+initMatrixRain();
+
+import * as THREE from "three";
+import {
+  OrbitControls
+} from "three/addons/controls/OrbitControls.js";
+import * as TWEEN from "three/addons/libs/tween.module.js";
+import {
+  SimplexNoise
+} from "three/addons/math/SimplexNoise.js";
+import Stats from 'three/addons/libs/stats.module.js';
+
+let simplex = new SimplexNoise();
+
+// 添加性能统计面板
+const stats = new Stats();
+document.body.appendChild(stats.dom);
+
+// 启用抗锯齿和颜色管理
+const renderer = new THREE.WebGLRenderer({
+  antialias: true,
+  powerPreference: "high-performance",
+  alpha: true
+});
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+let scene = new THREE.Scene();
+scene.background = new THREE.Color("#000"); // 改为黑色背景以配合字母雨
+// 添加动态雾效
+scene.fog = new THREE.FogExp2('#000000', 0.002);
+
+let camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 1, 500);
+camera.position.set(0, 3, 8).setLength(50);
+
+window.addEventListener("resize", event => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+})
+
+let controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+let clock = new THREE.Clock();
+let t = 0;
+
+// 在渲染循环中添加
+renderer.setAnimationLoop(() => {
+  stats.update();
+  TWEEN.update(performance.now()); // 使用精确时间戳
+  
+  // 限制最大帧率为60fps
+  const delta = Math.min(clock.getDelta(), 0.1);
+  t += delta;
+  
+  controls.update();
+  renderer.render(scene, camera);
+});
+
+class TextTerrain extends THREE.Object3D {
+  constructor(anisotropy) {
+    super();
+    // atlas
+    let alphabet = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"];
+    let textTexture = (() => {
+      let c = document.createElement("canvas");
+      let ctx = c.getContext("2d");
+      let texSize = 2048;
+      c.width = texSize;
+      c.height = texSize;
+      ctx.clearRect(0, 0, texSize, texSize);
+      let dim = 8;
+      let dimStep = texSize / dim;
+      for (let i = 0; i < alphabet.length; i++) {
+        let tileX = i % 8;
+        let tileY = Math.floor(i / 8);
+        let x = (tileX + 0.5) * dimStep;
+        let y = texSize - (tileY + 0.5) * dimStep;
+        ctx.fillStyle = `rgba(0, 255, 0, 1)`; // 绿色文字
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `bold ${dimStep * 0.9}px Arial`;
+        ctx.fillText(alphabet[i], x, y);
+      }
+      let tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = "srgb";
+      tex.anisotropy = anisotropy;
+      return tex;
+    })(); // atlas
+
+    let tileDim = 200;
+
+    let g = new THREE.PlaneGeometry();
+    // 优化随机生成算法
+    const generateLetterIndex = () => Math.floor(Math.random() * alphabet.length);
+    g.setAttribute("letterIdx", new THREE.InstancedBufferAttribute(
+      new Float32Array(Array.from({length: tileDim * tileDim}, generateLetterIndex)), 1
+    ));
+
+    // 增强材质表现
+    // 修改材质配置
+    const m = new THREE.MeshBasicMaterial({
+      map: textTexture,
+      transparent: true,
+      alphaTest: 0.05,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      color: 0x00ff00 // 绿色
+    });
+    
+    let io = new THREE.InstancedMesh(g, m, tileDim * tileDim);
+    this.instancedMesh = io;
+
+    this.dummy = new THREE.Object3D();
+
+    this.finals = [];
+
+    let tri = new THREE.Triangle();
+    let n = new THREE.Vector3();
+    let la = new THREE.Vector3();
+
+    function getY(x, z) {
+      return simplex.noise(x * 0.01, z * 0.01) * 7.5;
+    }
+
+    let setFinals = () => {
+      let y0 = getY(this.dummy.position.x, this.dummy.position.z);
+      let y1 = getY(this.dummy.position.x, this.dummy.position.z - 1);
+      let y2 = getY(this.dummy.position.x + 1, this.dummy.position.z);
+      this.dummy.position.y = y0;
+
+      tri.a.set(this.dummy.position.x, y1, this.dummy.position.z - 1);
+      tri.b.set(this.dummy.position.x, y0, this.dummy.position.z);
+      tri.c.set(this.dummy.position.x + 1, y2, this.dummy.position.z);
+      tri.getNormal(n);
+
+      la.copy(this.dummy.position).add(n);
+      this.dummy.lookAt(la);
+      this.dummy.rotation.z = 0; // align along Z-axis of the terrain
+      this.dummy.updateMatrix();
+
+      this.finals.push({
+        y: y0,
+        pos: this.dummy.position.clone(),
+        rot: this.dummy.rotation.clone(),
+        dummy: new THREE.Object3D(),
+        inAction: false,
+        mediators: {
+          v: new THREE.Vector3(),
+          v2: new THREE.Vector3()
+        }
+      })
+    }
+    
+    // make it grid
+    for (let z = 0; z < tileDim; z++) {
+      for (let x = 0; x < tileDim; x++) {
+        this.dummy.position.x = -(tileDim - 1) * 0.5 + x;
+        this.dummy.position.z = -(tileDim - 1) * 0.5 + z;
+        setFinals(this.dummy.position);
+        this.instancedMesh.setMatrixAt(z * tileDim + x, this.dummy.matrix);
+      }
+    } // make it grid
+
+    this.add(io);
+    
+    // actions section
+    this.actions = Array.from({
+      length: 5000
+    }, () => {
+      let action = (delay) => {
+        let getFreeLetterIndex = () => {
+          let letterIndex = Math.floor(Math.random() * this.finals.length);;
+          if (!this.finals[letterIndex].inAction) {
+            return letterIndex;
+          } else {
+            return getFreeLetterIndex();
+          }
+        }
+
+        let freeLetterIndex = getFreeLetterIndex();
+        let freeLetter = this.finals[freeLetterIndex];
+        let height = 30;
+        let m = freeLetter.mediators;
+        let v = m.v;
+        let v2 = m.v2;
+
+        v2.random().multiplyScalar(0.5).addScalar(0.5).multiplyScalar(Math.PI * 3 * Math.sign(Math.random() - 0.5));
+
+        let tween = new TWEEN.Tween({
+            val: 0
+          }).to({
+            val: 1
+          }, 10000)
+          .delay(delay)
+          .onStart(() => {freeLetter.inAction = true;})
+          .onUpdate(val => {
+            v.lerpVectors(v2, freeLetter.rot, val.val);
+            freeLetter.dummy.rotation.set(v.x, v.y, v.z);
+            freeLetter.dummy.position.copy(freeLetter.pos);
+            freeLetter.dummy.position.y = THREE.MathUtils.lerp(height, freeLetter.y, val.val);
+            freeLetter.dummy.updateMatrix();
+            io.setMatrixAt(freeLetterIndex, freeLetter.dummy.matrix);
+          })
+          .onComplete(() => {
+            freeLetter.inAction = false;
+            action(Math.random() * 10000);
+          });
+          tween.start();
+      }
+      return action;
+    }) // actions section
+  }
+}
+
+let textTerrain = new TextTerrain(renderer.capabilities.getMaxAnisotropy());
+scene.add(textTerrain);
+textTerrain.actions.forEach(action => {
+  action((Math.random() * 0.9 + 0.1) * 10000);
+}); // start the actions
+</script>
+
+
+
+
